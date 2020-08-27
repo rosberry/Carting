@@ -21,10 +21,15 @@ extension PBXNativeTarget {
     }
 
     func paths(for frameworks: [Framework], type: PathType) -> [String] {
-        let linkedCarthageDynamicFrameworkNames = linkedFrameworks(withNames: frameworks.map(\.name))
+        paths(for: [type: frameworks])
+    }
 
-        return linkedCarthageDynamicFrameworkNames.map { frameworkName in
-            return type.prefix + frameworkName
+    func paths(for frameworks: [PathType: [Framework]]) -> [String] {
+        frameworks.reduce([]) { result, value in
+            let (type, frameworks) = value
+            return result + linkedFrameworks(withNames: frameworks.map(\.name)).map { name in
+                type.prefix + name
+            }
         }
     }
 }

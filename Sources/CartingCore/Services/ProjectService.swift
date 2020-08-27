@@ -22,7 +22,7 @@ public final class ProjectService {
     }
 
     public let projectDirectoryPath: String?
-    public let frameworksDirectoryPath: String
+    public let frameworksDirectoryPaths: [String]
 
     private var projectFolder: Folder {
         if let path = projectDirectoryPath, let folder = try? Folder(path: path) {
@@ -31,15 +31,11 @@ public final class ProjectService {
         return FileSystem().currentFolder
     }
 
-    private var inputPathType: PathType {
-        .input(frameworksDirectoryPath: frameworksDirectoryPath)
-    }
-
     // MARK: - Lifecycle
 
-    public init(projectDirectoryPath: String?, frameworksDirectoryPath: String) throws {
+    public init(projectDirectoryPath: String?, frameworksDirectoryPaths: [String]) throws {
         self.projectDirectoryPath = projectDirectoryPath
-        self.frameworksDirectoryPath = frameworksDirectoryPath
+        self.frameworksDirectoryPaths = frameworksDirectoryPaths
     }
 
     public func updateScript(withName scriptName: String, format: Format, targetName: String?, projectNames: [String]) throws {
@@ -65,78 +61,76 @@ public final class ProjectService {
             throw Error.noTargets(name: targetName)
         }
 
-        let carthageDynamicFrameworks = try dynamicFrameworksInformation()
-        let carthageFolder = try projectFolder.subfolder(named: frameworksDirectoryPath)
+        let carthageDynamicFrameworks = try dynamicFrameworksInformation().mapKeys(PathType.input)
 
         try filteredTargets
-            .forEach { target in
-                let inputPaths = target.paths(for: carthageDynamicFrameworks, type: inputPathType)
-                let outputPaths = target.paths(for: carthageDynamicFrameworks, type: .output)
+                .forEach { target in
+            let inputPaths = target.paths(for: carthageDynamicFrameworks)
+            let outputPaths = target.paths(for: carthageDynamicFrameworks.values.reduce([], +), type: .output)
 
-                let targetBuildPhase = target.buildPhases.first { $0.name() == scriptName }
-                let projectBuildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first { $0.uuid == targetBuildPhase?.uuid }
+            let targetBuildPhase = target.buildPhases.first { $0.name() == scriptName }
+            let projectBuildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first { $0.uuid == targetBuildPhase?.uuid }
 
-                var scriptHasBeenUpdated = false
-                switch format {
-                case .file:
-                    if let projectBuildPhase = projectBuildPhase {
-                        scriptHasBeenUpdated = projectBuildPhase.update(shellScript: Constants.carthageScript)
-                        scriptHasBeenUpdated = projectBuildPhase.update(inputPaths: inputPaths, outputPaths: outputPaths)
-                    }
-                    else {
-                        let buildPhase = PBXShellScriptBuildPhase(name: scriptName,
-                                                                  inputPaths: outputPaths,
-                                                                  outputPaths: outputPaths,
-                                                                  shellScript: Constants.carthageScript)
+            var scriptHasBeenUpdated = false
+            switch format {
+            case .file:
+                if let projectBuildPhase = projectBuildPhase {
+                    scriptHasBeenUpdated = projectBuildPhase.update(shellScript: Constants.carthageScript)
+                    scriptHasBeenUpdated = projectBuildPhase.update(inputPaths: inputPaths, outputPaths: outputPaths)
+                }
+                else {
+                    let buildPhase = PBXShellScriptBuildPhase(name: scriptName,
+                                                              inputPaths: outputPaths,
+                                                              outputPaths: outputPaths,
+                                                              shellScript: Constants.carthageScript)
 
-                        target.buildPhases.append(buildPhase)
-                        xcodeproj.pbxproj.add(object: buildPhase)
-                        scriptHasBeenUpdated = true
-                    }
-                case .list:
-                    let listsFolder = try carthageFolder.createSubfolderIfNeeded(withName: "xcfilelists")
-                    let parentFolder = carthageFolder.parent ?? projectFolder
-                    let xcfilelistsFolderPath = listsFolder.path
-                        .replacingOccurrences(of: parentFolder.path, with: "$(SRCROOT)/")
+                    target.buildPhases.append(buildPhase)
+                    xcodeproj.pbxproj.add(object: buildPhase)
+                    scriptHasBeenUpdated = true
+                }
+            case .list:
+                let listsFolder = try projectFolder.createSubfolderIfNeeded(withName: "xcfilelists")
+                let xcfilelistsFolderPath = listsFolder.path
+                        .replacingOccurrences(of: projectFolder.path, with: "$(SRCROOT)/")
                         .deleting(suffix: "/")
 
-                    let inputFileListFileName = fileListName(forTargetName: target.name, type: inputPathType)
-                    let inputFileListPath = [xcfilelistsFolderPath, inputFileListFileName].joined(separator: "/")
+                let inputFileListFileName = inputFileListName(forTargetName: target.name)
+                let inputFileListPath = [xcfilelistsFolderPath, inputFileListFileName].joined(separator: "/")
 
-                    let outputFileListFileName = fileListName(forTargetName: target.name, type: .output)
-                    let outputFileListPath = [xcfilelistsFolderPath, outputFileListFileName].joined(separator: "/")
+                let outputFileListFileName = outputFileListName(forTargetName: target.name)
+                let outputFileListPath = [xcfilelistsFolderPath, outputFileListFileName].joined(separator: "/")
 
-                    let inputFileListNewContent = inputPaths.joined(separator: "\n")
-                    filelistsWereUpdated = try updateFile(in: listsFolder,
-                                                          withName: inputFileListFileName,
-                                                          content: inputFileListNewContent)
+                let inputFileListNewContent = inputPaths.joined(separator: "\n")
+                filelistsWereUpdated = try updateFile(in: listsFolder,
+                                                      withName: inputFileListFileName,
+                                                      content: inputFileListNewContent)
 
-                    let outputFileListNewContent = outputPaths.joined(separator: "\n")
-                    filelistsWereUpdated = try updateFile(in: listsFolder,
-                                                          withName: outputFileListFileName,
-                                                          content: outputFileListNewContent)
+                let outputFileListNewContent = outputPaths.joined(separator: "\n")
+                filelistsWereUpdated = try updateFile(in: listsFolder,
+                                                      withName: outputFileListFileName,
+                                                      content: outputFileListNewContent)
 
-                    if let projectBuildPhase = projectBuildPhase {
-                        scriptHasBeenUpdated = projectBuildPhase.update(shellScript: Constants.carthageScript)
-                        scriptHasBeenUpdated = projectBuildPhase.update(inputFileListPath: inputFileListPath,
-                                                                        outputFileListPath: outputFileListPath)
-                    }
-                    else {
-                        let buildPhase = PBXShellScriptBuildPhase(name: scriptName,
-                                                                  inputFileListPaths: [inputFileListPath],
-                                                                  outputFileListPaths: [outputFileListPath],
-                                                                  shellScript: Constants.carthageScript)
-
-                        target.buildPhases.append(buildPhase)
-                        xcodeproj.pbxproj.add(object: buildPhase)
-                        scriptHasBeenUpdated = true
-                    }
+                if let projectBuildPhase = projectBuildPhase {
+                    scriptHasBeenUpdated = projectBuildPhase.update(shellScript: Constants.carthageScript)
+                    scriptHasBeenUpdated = projectBuildPhase.update(inputFileListPath: inputFileListPath,
+                                                                    outputFileListPath: outputFileListPath)
                 }
-                if scriptHasBeenUpdated {
-                    needUpdateProject = true
-                    print("✅ Script \(scriptName) in target \(target.name) was successfully updated.")
+                else {
+                    let buildPhase = PBXShellScriptBuildPhase(name: scriptName,
+                                                              inputFileListPaths: [inputFileListPath],
+                                                              outputFileListPaths: [outputFileListPath],
+                                                              shellScript: Constants.carthageScript)
+
+                    target.buildPhases.append(buildPhase)
+                    xcodeproj.pbxproj.add(object: buildPhase)
+                    scriptHasBeenUpdated = true
                 }
             }
+            if scriptHasBeenUpdated {
+                needUpdateProject = true
+                print("✅ Script \(scriptName) in target \(target.name) was successfully updated.")
+            }
+        }
 
         if needUpdateProject {
             try xcodeproj.write(pathString: projectPath, override: true)
@@ -148,10 +142,10 @@ public final class ProjectService {
 
     public func printFrameworksInformation() throws {
         let informations = try frameworksInformation()
-        informations.forEach { information in
+        informations.values.reduce([], +).forEach { information in
             let description = [information.name, information.linking.rawValue].joined(separator: "\t\t") +
-                "\t" +
-                information.architectures.map(\.rawValue).joined(separator: ", ")
+                              "\t" +
+                              information.architectures.map(\.rawValue).joined(separator: ", ")
             print(description)
         }
     }
@@ -176,75 +170,72 @@ public final class ProjectService {
             throw Error.noTargets(name: targetName)
         }
 
-        let carthageDynamicFrameworks = try dynamicFrameworksInformation()
+        let carthageDynamicFrameworks = try dynamicFrameworksInformation().mapKeys(PathType.input)
 
         try filteredTargets
-            .forEach { target in
+                .forEach { target in
 
-                let inputPaths = target.paths(for: carthageDynamicFrameworks, type: inputPathType)
-                let outputPaths = target.paths(for: carthageDynamicFrameworks, type: .output)
+            let inputPaths = target.paths(for: carthageDynamicFrameworks)
+            let outputPaths = target.paths(for: carthageDynamicFrameworks.values.reduce([], +), type: .output)
 
-                let targetBuildPhase = target.buildPhases.first { $0.name() == scriptName }
-                let buildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first { $0.uuid == targetBuildPhase?.uuid }
+            let targetBuildPhase = target.buildPhases.first { $0.name() == scriptName }
+            let buildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first { $0.uuid == targetBuildPhase?.uuid }
 
-                guard let projectBuildPhase = buildPhase else {
-                    return
-                }
+            guard let projectBuildPhase = buildPhase else {
+                return
+            }
 
-                var missingPaths = [String]()
-                var projectInputPaths = [String]()
-                var projectOutputPaths = [String]()
-                switch format {
-                case .file:
-                    projectInputPaths = projectBuildPhase.inputPaths
-                    projectOutputPaths = projectBuildPhase.outputPaths
-                case .list:
-                    let carthageFolder = try projectFolder.subfolder(named: frameworksDirectoryPath)
-                    let listsFolder = try carthageFolder.createSubfolderIfNeeded(withName: "xcfilelists")
-                    let parentFolder = carthageFolder.parent ?? projectFolder
-                    let xcfilelistsFolderPath = listsFolder.path
-                        .replacingOccurrences(of: parentFolder.path, with: "$(SRCROOT)/")
+            var missingPaths = [String]()
+            var projectInputPaths = [String]()
+            var projectOutputPaths = [String]()
+            switch format {
+            case .file:
+                projectInputPaths = projectBuildPhase.inputPaths
+                projectOutputPaths = projectBuildPhase.outputPaths
+            case .list:
+                let listsFolder = try projectFolder.createSubfolderIfNeeded(withName: "xcfilelists")
+                let xcfilelistsFolderPath = listsFolder.path
+                        .replacingOccurrences(of: projectFolder.path, with: "$(SRCROOT)/")
                         .deleting(suffix: "/")
 
-                    let inputFileListFileName = fileListName(forTargetName: target.name, type: inputPathType)
-                    let inputFileListPath = [xcfilelistsFolderPath, inputFileListFileName].joined(separator: "/")
+                let inputFileListFileName = inputFileListName(forTargetName: target.name)
+                let inputFileListPath = [xcfilelistsFolderPath, inputFileListFileName].joined(separator: "/")
 
-                    let outputFileListFileName = fileListName(forTargetName: target.name, type: .output)
-                    let outputFileListPath = [xcfilelistsFolderPath, outputFileListFileName].joined(separator: "/")
+                let outputFileListFileName = outputFileListName(forTargetName: target.name)
+                let outputFileListPath = [xcfilelistsFolderPath, outputFileListFileName].joined(separator: "/")
 
-                    if projectBuildPhase.inputFileListPaths?.contains(inputFileListPath) == false {
-                        missingPaths.append(inputFileListPath)
-                        break
-                    }
-                    if let inputFile = try? listsFolder.file(named: inputFileListFileName) {
-                        projectInputPaths = try inputFile.readAsString().split(separator: "\n").map(String.init)
-                    }
-
-                    if projectBuildPhase.outputFileListPaths?.contains(outputFileListPath) == false {
-                        missingPaths.append(inputFileListPath)
-                        break
-                    }
-                    if let outputFile = try? listsFolder.file(named: outputFileListFileName) {
-                        projectOutputPaths = try outputFile.readAsString().split(separator: "\n").map(String.init)
-                    }
+                if projectBuildPhase.inputFileListPaths?.contains(inputFileListPath) == false {
+                    missingPaths.append(inputFileListPath)
+                    break
                 }
-                missingPaths.append(contentsOf: inputPaths.filter { projectInputPaths.contains($0) == false })
-                missingPaths.append(contentsOf: outputPaths.filter { projectOutputPaths.contains($0) == false })
-                for path in missingPaths {
-                    print("error: Missing \(path) in \(target.name) target")
+                if let inputFile = try? listsFolder.file(named: inputFileListFileName) {
+                    projectInputPaths = try inputFile.readAsString().split(separator: "\n").map(String.init)
+                }
+
+                if projectBuildPhase.outputFileListPaths?.contains(outputFileListPath) == false {
+                    missingPaths.append(inputFileListPath)
+                    break
+                }
+                if let outputFile = try? listsFolder.file(named: outputFileListFileName) {
+                    projectOutputPaths = try outputFile.readAsString().split(separator: "\n").map(String.init)
                 }
             }
+            missingPaths.append(contentsOf: inputPaths.filter { projectInputPaths.contains($0) == false })
+            missingPaths.append(contentsOf: outputPaths.filter { projectOutputPaths.contains($0) == false })
+            for path in missingPaths {
+                print("error: Missing \(path) in \(target.name) target")
+            }
+        }
     }
 
     // MARK: - Private
 
-    private func fileListName(forTargetName targetName: String, type: PathType) -> String {
-        switch type {
-        case .input:
-            return targetName + "-inputPaths.xcfilelist"
-        case .output:
-            return targetName + "-outputPaths.xcfilelist"
-        }
+    private func inputFileListName(forTargetName targetName: String) -> String {
+        targetName + "-inputPaths.xcfilelist"
+    }
+
+    private func outputFileListName(forTargetName targetName: String) -> String {
+        targetName + "-outputPaths.xcfilelist"
     }
 
     private func targets(in project: XcodeProj, withName name: String?) throws -> [PBXNativeTarget] {
@@ -270,28 +261,34 @@ public final class ProjectService {
         }
         let folder = try Folder(path: directoryPath)
         return folder.subfolders
-            .filter { folder in
-                let projectName = folder.name.deleting(suffix: "." + Constants.projectExtension)
-                var isValid = folder.name.hasSuffix(Constants.projectExtension)
-                if filterNames.isEmpty == false {
-                    isValid = isValid && filterNames.contains(projectName)
+                .filter { folder in
+                    let projectName = folder.name.deleting(suffix: "." + Constants.projectExtension)
+                    var isValid = folder.name.hasSuffix(Constants.projectExtension)
+                    if filterNames.isEmpty == false {
+                        isValid = isValid && filterNames.contains(projectName)
+                    }
+                    return isValid
                 }
-                return isValid
+                .map { $0.path }
+    }
+
+    private func frameworksInformation() throws -> [String: [Framework]] {
+        let frameworkFolders = Dictionary(uniqueKeysWithValues: try frameworksDirectoryPaths.map { path in
+            (path, try projectFolder.subfolder(atPath: "\(path)/Build/iOS").subfolders)
+        })
+        return try frameworkFolders.compactMapValues { subfolders in
+            try subfolders.compactMap { folder in
+                folder.name.hasSuffix("framework") ? (try information(for: folder)) : nil
             }
-            .map { $0.path }
+        }
     }
 
-    private func frameworksInformation() throws -> [Framework] {
-        let frameworkFolder = try projectFolder.subfolder(atPath: "\(frameworksDirectoryPath)/Build/iOS")
-        let frameworks = frameworkFolder.subfolders.filter { $0.name.hasSuffix("framework") }
-        return try frameworks.map(information)
-    }
-
-    private func dynamicFrameworksInformation() throws -> [Framework] {
-        return try frameworksInformation()
-            .filter { information in
+    private func dynamicFrameworksInformation() throws -> [String: [Framework]] {
+        try frameworksInformation().mapValues { frameworks in
+            frameworks.filter { information in
                 information.linking == .dynamic
             }
+        }
     }
 
     private func information(for framework: Folder) throws -> Framework {
@@ -343,16 +340,16 @@ extension ProjectService.Error: CustomStringConvertible {
 
     var description: String {
         switch self {
-            case .projectFileReadingFailed:
-                return "Can't find project file."
-            case .targetFilterFailed(let name):
-                return "There is no target with \(name) name."
-            case .noTargets(let name):
-                var description = "There are no application targets"
-                if let name = name {
-                    description += " with \"\(name)\" name"
-                }
-                return description
+        case .projectFileReadingFailed:
+            return "Can't find project file."
+        case .targetFilterFailed(let name):
+            return "There is no target with \(name) name."
+        case .noTargets(let name):
+            var description = "There are no application targets"
+            if let name = name {
+                description += " with \"\(name)\" name"
+            }
+            return description
         }
     }
 }

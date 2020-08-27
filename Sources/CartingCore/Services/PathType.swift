@@ -2,7 +2,7 @@
 //  Copyright © 2019 Artem Novichkov. All rights reserved.
 //
 
-enum PathType {
+enum PathType: Hashable {
     case input(frameworksDirectoryPath: String), output
 
     var prefix: String {

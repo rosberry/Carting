@@ -15,7 +15,7 @@ struct Lint: ParsableCommand {
 
     func run() throws {
         let projectService = try ProjectService(projectDirectoryPath: options.path,
-                                                frameworksDirectoryPath: options.frameworksDirectoryPath)
+                                                frameworksDirectoryPaths: options.frameworksDirectoryPaths)
         try projectService.lintScript(withName: options.script,
                                       format: options.format,
                                       targetName: options.target,
