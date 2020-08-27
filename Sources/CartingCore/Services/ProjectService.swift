@@ -22,6 +22,7 @@ public final class ProjectService {
     }
 
     public let projectDirectoryPath: String?
+    public let frameworksDirectoryPath: String
 
     private var projectFolder: Folder {
         if let path = projectDirectoryPath, let folder = try? Folder(path: path) {
@@ -30,10 +31,15 @@ public final class ProjectService {
         return FileSystem().currentFolder
     }
 
+    private var inputPathType: PathType {
+        .input(frameworksDirectoryPath: frameworksDirectoryPath)
+    }
+
     // MARK: - Lifecycle
 
-    public init(projectDirectoryPath: String?) throws {
+    public init(projectDirectoryPath: String?, frameworksDirectoryPath: String) throws {
         self.projectDirectoryPath = projectDirectoryPath
+        self.frameworksDirectoryPath = frameworksDirectoryPath
     }
 
     public func updateScript(withName scriptName: String, format: Format, targetName: String?, projectNames: [String]) throws {
@@ -60,11 +66,11 @@ public final class ProjectService {
         }
 
         let carthageDynamicFrameworks = try dynamicFrameworksInformation()
-        let carthageFolder = try projectFolder.subfolder(named: "Carthage")
+        let carthageFolder = try projectFolder.subfolder(named: frameworksDirectoryPath)
 
         try filteredTargets
             .forEach { target in
-                let inputPaths = target.paths(for: carthageDynamicFrameworks, type: .input)
+                let inputPaths = target.paths(for: carthageDynamicFrameworks, type: inputPathType)
                 let outputPaths = target.paths(for: carthageDynamicFrameworks, type: .output)
 
                 let targetBuildPhase = target.buildPhases.first { $0.name() == scriptName }
@@ -94,7 +100,7 @@ public final class ProjectService {
                         .replacingOccurrences(of: parentFolder.path, with: "$(SRCROOT)/")
                         .deleting(suffix: "/")
 
-                    let inputFileListFileName = fileListName(forTargetName: target.name, type: .input)
+                    let inputFileListFileName = fileListName(forTargetName: target.name, type: inputPathType)
                     let inputFileListPath = [xcfilelistsFolderPath, inputFileListFileName].joined(separator: "/")
 
                     let outputFileListFileName = fileListName(forTargetName: target.name, type: .output)
@@ -175,7 +181,7 @@ public final class ProjectService {
         try filteredTargets
             .forEach { target in
 
-                let inputPaths = target.paths(for: carthageDynamicFrameworks, type: .input)
+                let inputPaths = target.paths(for: carthageDynamicFrameworks, type: inputPathType)
                 let outputPaths = target.paths(for: carthageDynamicFrameworks, type: .output)
 
                 let targetBuildPhase = target.buildPhases.first { $0.name() == scriptName }
@@ -193,14 +199,14 @@ public final class ProjectService {
                     projectInputPaths = projectBuildPhase.inputPaths
                     projectOutputPaths = projectBuildPhase.outputPaths
                 case .list:
-                    let carthageFolder = try projectFolder.subfolder(named: "Carthage")
+                    let carthageFolder = try projectFolder.subfolder(named: frameworksDirectoryPath)
                     let listsFolder = try carthageFolder.createSubfolderIfNeeded(withName: "xcfilelists")
                     let parentFolder = carthageFolder.parent ?? projectFolder
                     let xcfilelistsFolderPath = listsFolder.path
                         .replacingOccurrences(of: parentFolder.path, with: "$(SRCROOT)/")
                         .deleting(suffix: "/")
 
-                    let inputFileListFileName = fileListName(forTargetName: target.name, type: .input)
+                    let inputFileListFileName = fileListName(forTargetName: target.name, type: inputPathType)
                     let inputFileListPath = [xcfilelistsFolderPath, inputFileListFileName].joined(separator: "/")
 
                     let outputFileListFileName = fileListName(forTargetName: target.name, type: .output)
@@ -276,7 +282,7 @@ public final class ProjectService {
     }
 
     private func frameworksInformation() throws -> [Framework] {
-        let frameworkFolder = try projectFolder.subfolder(atPath: "Carthage/Build/iOS")
+        let frameworkFolder = try projectFolder.subfolder(atPath: "\(frameworksDirectoryPath)/Build/iOS")
         let frameworks = frameworkFolder.subfolders.filter { $0.name.hasSuffix("framework") }
         return try frameworks.map(information)
     }

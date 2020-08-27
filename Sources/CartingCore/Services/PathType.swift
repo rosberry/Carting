@@ -3,12 +3,12 @@
 //
 
 enum PathType {
-    case input, output
+    case input(frameworksDirectoryPath: String), output
 
     var prefix: String {
         switch self {
-        case .input:
-            return "$(SRCROOT)/Carthage/Build/iOS/"
+        case let .input(frameworksDirectoryPath):
+            return "$(SRCROOT)/\(frameworksDirectoryPath)/Build/iOS/"
         case .output:
             return "$(BUILT_PRODUCTS_DIR)/$(FRAMEWORKS_FOLDER_PATH)/"
         }

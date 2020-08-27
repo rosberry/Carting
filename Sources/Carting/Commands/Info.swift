@@ -13,8 +13,13 @@ struct Info: ParsableCommand {
     @Option(name: [.short, .long], default: ProcessInfo.processInfo.environment["PROJECT_DIR"], help: "The project directory path.")
     var path: String?
 
+    @Option(name: [.short, .long],
+            default: "Carthage",
+            help: "The project directory that contains frameworks to proceed.")
+    var frameworksDirectoryPath: String
+
     func run() throws {
-        let projectService = try ProjectService(projectDirectoryPath: path)
+        let projectService = try ProjectService(projectDirectoryPath: path, frameworksDirectoryPath: frameworksDirectoryPath)
         try projectService.printFrameworksInformation()
     }
 }
