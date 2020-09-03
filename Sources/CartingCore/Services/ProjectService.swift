@@ -63,10 +63,9 @@ public final class ProjectService {
 
         let carthageDynamicFrameworks = try dynamicFrameworksInformation().mapKeys(PathType.input)
 
-        try filteredTargets
-                .forEach { target in
+        try filteredTargets.forEach { target in
             let inputPaths = target.paths(for: carthageDynamicFrameworks)
-            let outputPaths = target.paths(for: carthageDynamicFrameworks.values.reduce([], +), type: .output)
+            let outputPaths = target.paths(for: carthageDynamicFrameworks.values.flatten(), type: .output)
 
             let targetBuildPhase = target.buildPhases.first { $0.name() == scriptName }
             let projectBuildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first { $0.uuid == targetBuildPhase?.uuid }
@@ -141,8 +140,7 @@ public final class ProjectService {
     }
 
     public func printFrameworksInformation() throws {
-        let informations = try frameworksInformation()
-        informations.values.reduce([], +).forEach { information in
+        (try frameworksInformation()).values.flatten().forEach { information in
             let description = [information.name, information.linking.rawValue].joined(separator: "\t\t") +
                               "\t" +
                               information.architectures.map(\.rawValue).joined(separator: ", ")
@@ -172,14 +170,13 @@ public final class ProjectService {
 
         let carthageDynamicFrameworks = try dynamicFrameworksInformation().mapKeys(PathType.input)
 
-        try filteredTargets
-                .forEach { target in
+        try filteredTargets.forEach { target in
 
             let inputPaths = target.paths(for: carthageDynamicFrameworks)
-            let outputPaths = target.paths(for: carthageDynamicFrameworks.values.reduce([], +), type: .output)
+            let outputPaths = target.paths(for: carthageDynamicFrameworks.values.flatten(), type: .output)
 
-            let targetBuildPhase = target.buildPhases.first { $0.name() == scriptName }
-            let buildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first { $0.uuid == targetBuildPhase?.uuid }
+            let targetBuildPhase = target.buildPhases.first(with: scriptName, at: \.name)
+            let buildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first(with: targetBuildPhase?.uuid, at: \.uuid)
 
             guard let projectBuildPhase = buildPhase else {
                 return
