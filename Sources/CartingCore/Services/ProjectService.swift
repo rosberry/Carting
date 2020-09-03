@@ -35,7 +35,7 @@ public final class ProjectService {
 
     public init(projectDirectoryPath: String?, frameworksDirectoryPaths: [String]) throws {
         self.projectDirectoryPath = projectDirectoryPath
-        self.frameworksDirectoryPaths = frameworksDirectoryPaths
+        self.frameworksDirectoryPaths = frameworksDirectoryPaths.isEmpty ? ["Carthage"] : frameworksDirectoryPaths
     }
 
     public func updateScript(withName scriptName: String, format: Format, targetName: String?, projectNames: [String]) throws {
