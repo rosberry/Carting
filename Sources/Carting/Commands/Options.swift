@@ -14,8 +14,8 @@ struct Options: ParsableArguments {
     @Option(name: [.short, .long], default: ProcessInfo.processInfo.environment["PROJECT_DIR"], help: "The project directory path.")
     var path: String?
 
-    @Argument(help: "The project directories that contains frameworks to proceed")
-    var frameworksDirectoryPaths: [String]
+    @Option(name: [.short, .long], default: "Carthage", help: "The project directories that contains frameworks to proceed")
+    var frameworksDirectoryPath: String
 
     @Option(name: [.short, .long],
             default: .list,

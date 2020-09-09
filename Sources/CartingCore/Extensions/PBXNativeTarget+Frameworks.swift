@@ -6,28 +6,25 @@ import XcodeProj
 
 extension PBXNativeTarget {
 
-    func linkedFrameworks(for context: (PathType, [Framework])) -> [String] {
+    func linkedFrameworks(withNames names: [String]) -> [String] {
         guard let frameworksBuildPhase = try? frameworksBuildPhase() else {
             return []
         }
-        let (type, frameworks) = context
-        return frameworks.compactMap { framework in
-            let name = framework.name
-            guard let files = frameworksBuildPhase.files,
-                  files.contains(with: name, at: \.file?.name) else {
-                return nil
+        return names.filter { name in
+            guard let files = frameworksBuildPhase.files else {
+                return false
             }
-            return type.prefix + name
+            return files.contains { file in
+                file.file?.name == name
+            }
         }
     }
 
     func paths(for frameworks: [Framework], type: PathType) -> [String] {
-        paths(for: [type: frameworks])
-    }
+        let linkedCarthageDynamicFrameworkNames = linkedFrameworks(withNames: frameworks.map(\.name))
 
-    func paths(for frameworks: [PathType: [Framework]]) -> [String] {
-        frameworks.reduce([]) { result, value in
-            result + linkedFrameworks(for: value)
+        return linkedCarthageDynamicFrameworkNames.map { frameworkName in
+            type.prefix + frameworkName
         }
     }
 }

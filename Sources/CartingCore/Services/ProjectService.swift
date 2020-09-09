@@ -22,7 +22,6 @@ public final class ProjectService {
     }
 
     public let projectDirectoryPath: String?
-    public let frameworksDirectoryPaths: [String]
 
     private var projectFolder: Folder {
         if let path = projectDirectoryPath, let folder = try? Folder(path: path) {
@@ -33,23 +32,48 @@ public final class ProjectService {
 
     // MARK: - Lifecycle
 
-    public init(projectDirectoryPath: String?, frameworksDirectoryPaths: [String]) throws {
+    public init(projectDirectoryPath: String?) {
         self.projectDirectoryPath = projectDirectoryPath
-        self.frameworksDirectoryPaths = frameworksDirectoryPaths.isEmpty ? ["Carthage"] : frameworksDirectoryPaths
     }
 
-    public func updateScript(withName scriptName: String, format: Format, targetName: String?, projectNames: [String]) throws {
+    public func updateScript(withName scriptName: String,
+                             format: Format,
+                             targetName: String?,
+                             projectNames: [String],
+                             frameworksDirectoryPath: String) throws {
         let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: projectNames)
         guard projectPaths.count > 0 else {
             print(Constants.nothingToUpdate)
             return
         }
         for path in projectPaths {
-            try updateScript(withName: scriptName, format: format, targetName: targetName, projectPath: path)
+            try updateScript(withName: scriptName,
+                             format: format,
+                             targetName: targetName,
+                             projectPath: path,
+                             frameworksDirectoryPath: frameworksDirectoryPath)
         }
     }
 
-    public func updateScript(withName scriptName: String, format: Format, targetName: String?, projectPath: String) throws {
+    public func updateScript(withName scriptName: String,
+                             format: Format,
+                             targetName: String?,
+                             projectPath: String,
+                             frameworksDirectoryPaths: [String]) throws {
+        for path in frameworksDirectoryPaths {
+            try updateScript(withName: scriptName,
+                             format: format,
+                             targetName: targetName,
+                             projectPath: projectPath,
+                             frameworksDirectoryPath: path)
+        }
+    }
+
+    public func updateScript(withName scriptName: String,
+                             format: Format,
+                             targetName: String?,
+                             projectPath: String,
+                             frameworksDirectoryPath: String) throws {
         let xcodeproj = try XcodeProj(pathString: projectPath)
 
         var needUpdateProject = false
@@ -61,11 +85,11 @@ public final class ProjectService {
             throw Error.noTargets(name: targetName)
         }
 
-        let carthageDynamicFrameworks = try dynamicFrameworksInformation().mapKeys(PathType.input)
+        let dynamicFrameworks = try dynamicFrameworksInformation(frameworksDirectoryPath: frameworksDirectoryPath)
 
         try filteredTargets.forEach { target in
-            let inputPaths = target.paths(for: carthageDynamicFrameworks)
-            let outputPaths = target.paths(for: carthageDynamicFrameworks.values.flatten(), type: .output)
+            let inputPaths = target.paths(for: dynamicFrameworks, type: .input(frameworksDirectoryPath: frameworksDirectoryPath))
+            let outputPaths = target.paths(for: dynamicFrameworks, type: .output)
 
             let targetBuildPhase = target.buildPhases.first { $0.name() == scriptName }
             let projectBuildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first { $0.uuid == targetBuildPhase?.uuid }
@@ -139,8 +163,9 @@ public final class ProjectService {
         }
     }
 
-    public func printFrameworksInformation() throws {
-        (try frameworksInformation()).values.flatten().forEach { information in
+    public func printFrameworksInformation(frameworksDirectoryPath: String) throws {
+        let informations = try frameworksInformation(frameworksDirectoryPath: frameworksDirectoryPath)
+        informations.forEach { information in
             let description = [information.name, information.linking.rawValue].joined(separator: "\t\t") +
                               "\t" +
                               information.architectures.map(\.rawValue).joined(separator: ", ")
@@ -148,18 +173,44 @@ public final class ProjectService {
         }
     }
 
-    public func lintScript(withName scriptName: String, format: Format, targetName: String?, projectNames: [String]) throws {
+    public func lintScript(withName scriptName: String,
+                           format: Format,
+                           targetName: String?,
+                           projectNames: [String],
+                           frameworksDirectoryPath: String) throws {
         let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: projectNames)
         guard projectPaths.count > 0 else {
             print("🤷‍♂️ Nothing to lint.")
             return
         }
         for path in projectPaths {
-            try lintScript(withName: scriptName, format: format, targetName: targetName, projectPath: path)
+            try lintScript(withName: scriptName,
+                           format: format,
+                           targetName: targetName,
+                           projectPath: path,
+                           frameworksDirectoryPath: frameworksDirectoryPath)
         }
     }
 
-    public func lintScript(withName scriptName: String, format: Format, targetName: String?, projectPath: String) throws {
+    public func lintScript(withName scriptName: String,
+                           format: Format,
+                           targetName: String?,
+                           projectPath: String,
+                           frameworksDirectoryPaths: [String]) throws {
+        for path in frameworksDirectoryPaths {
+            try lintScript(withName: scriptName,
+                           format: format,
+                           targetName: targetName,
+                           projectPath: projectPath,
+                           frameworksDirectoryPath: path)
+        }
+    }
+
+    public func lintScript(withName scriptName: String,
+                           format: Format,
+                           targetName: String?,
+                           projectPath: String,
+                           frameworksDirectoryPath: String) throws {
         let xcodeproj = try XcodeProj(pathString: projectPath)
 
         let filteredTargets = try targets(in: xcodeproj, withName: targetName)
@@ -168,12 +219,12 @@ public final class ProjectService {
             throw Error.noTargets(name: targetName)
         }
 
-        let carthageDynamicFrameworks = try dynamicFrameworksInformation().mapKeys(PathType.input)
+        let dynamicFrameworks = try dynamicFrameworksInformation(frameworksDirectoryPath: frameworksDirectoryPath)
 
         try filteredTargets.forEach { target in
 
-            let inputPaths = target.paths(for: carthageDynamicFrameworks)
-            let outputPaths = target.paths(for: carthageDynamicFrameworks.values.flatten(), type: .output)
+            let inputPaths = target.paths(for: dynamicFrameworks, type: .input(frameworksDirectoryPath: frameworksDirectoryPath))
+            let outputPaths = target.paths(for: dynamicFrameworks, type: .output)
 
             let targetBuildPhase = target.buildPhases.first(with: scriptName, at: \.name)
             let buildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first(with: targetBuildPhase?.uuid, at: \.uuid)
@@ -257,34 +308,25 @@ public final class ProjectService {
             directoryPath = FileManager.default.currentDirectoryPath
         }
         let folder = try Folder(path: directoryPath)
-        return folder.subfolders
-                .filter { folder in
-                    let projectName = folder.name.deleting(suffix: "." + Constants.projectExtension)
-                    var isValid = folder.name.hasSuffix(Constants.projectExtension)
-                    if filterNames.isEmpty == false {
-                        isValid = isValid && filterNames.contains(projectName)
-                    }
-                    return isValid
-                }
-                .map { $0.path }
-    }
-
-    private func frameworksInformation() throws -> [String: [Framework]] {
-        let frameworkFolders = Dictionary(uniqueKeysWithValues: try frameworksDirectoryPaths.map { path in
-            (path, try projectFolder.subfolder(atPath: "\(path)/Build/iOS").subfolders)
-        })
-        return try frameworkFolders.compactMapValues { subfolders in
-            try subfolders.compactMap { folder in
-                folder.name.hasSuffix("framework") ? (try information(for: folder)) : nil
+        return folder.subfolders.compactMap { folder in
+            let projectName = folder.name.deleting(suffix: "." + Constants.projectExtension)
+            var isValid = folder.name.hasSuffix(Constants.projectExtension)
+            if filterNames.isEmpty == false {
+                isValid = isValid && filterNames.contains(projectName)
             }
+            return isValid ? folder.path : nil
         }
     }
 
-    private func dynamicFrameworksInformation() throws -> [String: [Framework]] {
-        try frameworksInformation().mapValues { frameworks in
-            frameworks.filter { information in
-                information.linking == .dynamic
-            }
+    private func frameworksInformation(frameworksDirectoryPath: String) throws -> [Framework] {
+        let frameworkFolder = try projectFolder.subfolder(atPath: "\(frameworksDirectoryPath)/Build/iOS")
+        let frameworks = frameworkFolder.subfolders.filter { $0.name.hasSuffix("framework") }
+        return try frameworks.map(information)
+    }
+
+    private func dynamicFrameworksInformation(frameworksDirectoryPath: String) throws -> [Framework] {
+        try frameworksInformation(frameworksDirectoryPath: frameworksDirectoryPath).filter { information in
+            information.linking == .dynamic
         }
     }
 
@@ -330,7 +372,7 @@ func linking(fromOutput output: String) -> Framework.Linking {
 }
 
 func architectures(fromOutput output: String) -> [Framework.Architecture] {
-    return output.components(separatedBy: " ").compactMap(Framework.Architecture.init)
+    output.components(separatedBy: " ").compactMap(Framework.Architecture.init)
 }
 
 extension ProjectService.Error: CustomStringConvertible {
