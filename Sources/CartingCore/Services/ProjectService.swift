@@ -60,9 +60,13 @@ public final class ProjectService {
     public func updateScript(withName scriptName: String,
                              format: Format,
                              targetName: String,
-                             projectPath: String,
                              frameworksDirectoryPaths: [String],
                              shouldAppend: Bool) throws {
+        let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: [])
+        guard let projectPath = projectPaths.first else {
+            print(Constants.nothingToUpdate)
+            return
+        }
         for path in frameworksDirectoryPaths {
             try updateScript(withName: scriptName,
                              format: format,
@@ -202,8 +206,12 @@ public final class ProjectService {
     public func lintScript(withName scriptName: String,
                            format: Format,
                            targetName: String,
-                           projectPath: String,
                            frameworksDirectoryPaths: [String]) throws {
+        let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: [])
+        guard let projectPath = projectPaths.first else {
+            print("🤷‍♂️ Nothing to lint.")
+            return
+        }
         for path in frameworksDirectoryPaths {
             try lintScript(withName: scriptName,
                            format: format,

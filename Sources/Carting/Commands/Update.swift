@@ -13,16 +13,26 @@ struct Update: ParsableCommand {
     @OptionGroup()
     var options: Options
 
-    @Flag(name: [.customLong("append to file"), .short], help: "Should output be appended to previous output")
+    @Flag(name: [.customLong("append-to-file"), .short], help: "Should output be appended to previous output")
     var isAppendingToFile: Bool = false
 
     func run() throws {
         let projectService = ProjectService(projectDirectoryPath: options.path)
-        try projectService.updateScript(withName: options.script,
-                                        format: options.format,
-                                        targetName: options.target,
-                                        projectNames: options.projectNames,
-                                        frameworksDirectoryPath: options.frameworksDirectoryPath,
-                                        shouldAppend: isAppendingToFile)
+        if !options.projectNames.isEmpty,
+           let frameworksDirectoryPath = options.frameworksDirectoryPaths.first {
+            try projectService.updateScript(withName: options.script,
+                                            format: options.format,
+                                            targetName: options.target,
+                                            projectNames: options.projectNames,
+                                            frameworksDirectoryPath: frameworksDirectoryPath,
+                                            shouldAppend: isAppendingToFile)
+        }
+        else {
+            try projectService.updateScript(withName: options.script,
+                                            format: options.format,
+                                            targetName: options.target,
+                                            frameworksDirectoryPaths: options.frameworksDirectoryPaths,
+                                            shouldAppend: isAppendingToFile)
+        }
     }
 }

@@ -15,10 +15,19 @@ struct Lint: ParsableCommand {
 
     func run() throws {
         let projectService = ProjectService(projectDirectoryPath: options.path)
-        try projectService.lintScript(withName: options.script,
-                                      format: options.format,
-                                      targetName: options.target,
-                                      projectNames: options.projectNames,
-                                      frameworksDirectoryPath: options.frameworksDirectoryPath)
+        if !options.projectNames.isEmpty,
+           let frameworksDirectoryPath = options.frameworksDirectoryPaths.first {
+            try projectService.lintScript(withName: options.script,
+                                          format: options.format,
+                                          targetName: options.target,
+                                          projectNames: options.projectNames,
+                                          frameworksDirectoryPath: frameworksDirectoryPath)
+        }
+        else {
+            try projectService.lintScript(withName: options.script,
+                                          format: options.format,
+                                          targetName: options.target,
+                                          frameworksDirectoryPaths: options.frameworksDirectoryPaths)
+        }
     }
 }

@@ -14,15 +14,15 @@ struct Options: ParsableArguments {
     @Option(name: [.short, .long], help: "The project directory path.")
     var path: String = ProcessInfo.processInfo.environment["PROJECT_DIR", default: ""]
 
-    @Option(name: [.short, .long], help: "The project directories that contains frameworks to proceed")
-    var frameworksDirectoryPath: String = "Carthage"
-
     @Option(name: [.short, .long], help: "Format of input/output file paths: file - using simple paths, list - using xcfilelists")
     var format: Format = .list
 
     @Option(name: [.short, .long], help: "The project target name.")
     var target: String = ProcessInfo.processInfo.environment["TARGET_NAME", default: ""]
 
-    @Argument(help: "The names of projects.")
-    var projectNames: [String]
+    @Option(help: "The names of projects. If specified, only first (or default) frameworksDirectoryPath will be proceed")
+    var projectNames: [String] = []
+
+    @Argument(help: "The project directories that contains frameworks to proceed")
+    var frameworksDirectoryPaths: [String] = ["Carthage"]
 }
