@@ -83,13 +83,6 @@ public final class ProjectService {
                              projectPath: String,
                              frameworksDirectoryPath: String,
                              shouldAppend: Bool) throws {
-        let (xcodeproj, filteredTargets, dynamicFrameworks) = try initialContext(projectPath: projectPath,
-                                                                                 targetName: targetName,
-                                                                                 frameworksDirectoryPath: frameworksDirectoryPath)
-
-        var needUpdateProject = false
-        var filelistsWereUpdated = false
-
         func updateBuildPhaseForFile(_ buildPhase: PBXShellScriptBuildPhase?,
                                      in target: PBXNativeTarget,
                                      inputPaths: [String],
@@ -177,6 +170,13 @@ public final class ProjectService {
                 print("✅ Script \(scriptName) in target \(target.name) was successfully updated.")
             }
         }
+
+        let (xcodeproj, filteredTargets, dynamicFrameworks) = try initialContext(projectPath: projectPath,
+                                                                                 targetName: targetName,
+                                                                                 frameworksDirectoryPath: frameworksDirectoryPath)
+
+        var needUpdateProject = false
+        var filelistsWereUpdated = false
 
         try filteredTargets.forEach { target in
             try proceed(target: target)
