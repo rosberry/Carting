@@ -8,7 +8,7 @@ enum PathType: Hashable {
     var prefix: String {
         switch self {
         case let .input(frameworksDirectoryPath):
-            return "$(SRCROOT)/\(frameworksDirectoryPath)/Build/iOS/"
+            return PathDispatcher.iOSFrameworksDirectory(path: "\(PathDispatcher.srcRoot)\(frameworksDirectoryPath)")
         case .output:
             return "$(BUILT_PRODUCTS_DIR)/$(FRAMEWORKS_FOLDER_PATH)/"
         }

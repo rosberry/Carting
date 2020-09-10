@@ -12,7 +12,7 @@ struct Options: ParsableArguments {
     var script: String = "Carthage"
 
     @Option(name: [.short, .long], help: "The project directory path.")
-    var path: String = ProcessInfo.processInfo.environment["PROJECT_DIR", default: ""]
+    var path: String = PathDispatcher.defaultProjectDirectoryPath
 
     @Option(name: [.short, .long], help: "Format of input/output file paths: file - using simple paths, list - using xcfilelists")
     var format: Format = .list
@@ -24,5 +24,5 @@ struct Options: ParsableArguments {
     var projectNames: [String] = []
 
     @Argument(help: "The project directories that contains frameworks to proceed")
-    var frameworksDirectoryPaths: [String] = ["Carthage"]
+    var frameworksDirectoryPaths: [String] = [PathDispatcher.defaultFrameworksDirectory]
 }

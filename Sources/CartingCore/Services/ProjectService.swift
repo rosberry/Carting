@@ -16,12 +16,12 @@ public final class ProjectService {
     }
 
     private enum Constants {
-        static let projectExtension = "xcodeproj"
-        static let carthageScript = "/usr/local/bin/carthage copy-frameworks"
-        static let nothingToUpdate = "🤷‍♂️ Nothing to update."
+        static let nothingToUpdate = "🤷️ Nothing to update."
+        static let nothingToLint = "🤷‍️ Nothing to lint."
     }
 
     private let projectDirectoryPath: String
+    private let carthageCopyFrameworks: String = "\(PathDispatcher.carthageScriptPath) copy-frameworks"
 
     private var projectFolder: Folder {
         if !projectDirectoryPath.isEmpty, let folder = try? Folder(path: projectDirectoryPath) {
@@ -107,14 +107,14 @@ public final class ProjectService {
             switch format {
             case .file:
                 if let projectBuildPhase = projectBuildPhase {
-                    scriptHasBeenUpdated = projectBuildPhase.update(shellScript: Constants.carthageScript)
+                    scriptHasBeenUpdated = projectBuildPhase.update(shellScript: carthageCopyFrameworks)
                     scriptHasBeenUpdated = projectBuildPhase.update(inputPaths: inputPaths, outputPaths: outputPaths)
                 }
                 else {
                     let buildPhase = PBXShellScriptBuildPhase(name: scriptName,
                                                               inputPaths: outputPaths,
                                                               outputPaths: outputPaths,
-                                                              shellScript: Constants.carthageScript)
+                                                              shellScript: carthageCopyFrameworks)
 
                     target.buildPhases.append(buildPhase)
                     xcodeproj.pbxproj.add(object: buildPhase)
@@ -123,7 +123,7 @@ public final class ProjectService {
             case .list:
                 let listsFolder = try projectFolder.createSubfolderIfNeeded(withName: "xcfilelists")
                 let xcfilelistsFolderPath = listsFolder.path
-                        .replacingOccurrences(of: projectFolder.path, with: "$(SRCROOT)/")
+                        .replacingOccurrences(of: projectFolder.path, with: PathDispatcher.srcRoot)
                         .deleting(suffix: "/")
 
                 let inputFileListFileName = inputFileListName(forTargetName: target.name)
@@ -145,7 +145,7 @@ public final class ProjectService {
                                                       shouldAppend: shouldAppend)
 
                 if let projectBuildPhase = projectBuildPhase {
-                    scriptHasBeenUpdated = projectBuildPhase.update(shellScript: Constants.carthageScript)
+                    scriptHasBeenUpdated = projectBuildPhase.update(shellScript: carthageCopyFrameworks)
                     scriptHasBeenUpdated = projectBuildPhase.update(inputFileListPath: inputFileListPath,
                                                                     outputFileListPath: outputFileListPath)
                 }
@@ -153,7 +153,7 @@ public final class ProjectService {
                     let buildPhase = PBXShellScriptBuildPhase(name: scriptName,
                                                               inputFileListPaths: [inputFileListPath],
                                                               outputFileListPaths: [outputFileListPath],
-                                                              shellScript: Constants.carthageScript)
+                                                              shellScript: carthageCopyFrameworks)
 
                     target.buildPhases.append(buildPhase)
                     xcodeproj.pbxproj.add(object: buildPhase)
@@ -191,7 +191,7 @@ public final class ProjectService {
                            frameworksDirectoryPath: String) throws {
         let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: projectNames)
         guard projectPaths.count > 0 else {
-            print("🤷‍♂️ Nothing to lint.")
+            print(Constants.nothingToLint)
             return
         }
         for path in projectPaths {
@@ -209,7 +209,7 @@ public final class ProjectService {
                            frameworksDirectoryPaths: [String]) throws {
         let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: [])
         guard let projectPath = projectPaths.first else {
-            print("🤷‍♂️ Nothing to lint.")
+            print(Constants.nothingToLint)
             return
         }
         for path in frameworksDirectoryPaths {
@@ -258,7 +258,7 @@ public final class ProjectService {
             case .list:
                 let listsFolder = try projectFolder.createSubfolderIfNeeded(withName: "xcfilelists")
                 let xcfilelistsFolderPath = listsFolder.path
-                        .replacingOccurrences(of: projectFolder.path, with: "$(SRCROOT)/")
+                        .replacingOccurrences(of: projectFolder.path, with: PathDispatcher.srcRoot)
                         .deleting(suffix: "/")
 
                 let inputFileListFileName = inputFileListName(forTargetName: target.name)
@@ -324,8 +324,8 @@ public final class ProjectService {
         }
         let folder = try Folder(path: directoryPath)
         return folder.subfolders.compactMap { folder in
-            let projectName = folder.name.deleting(suffix: "." + Constants.projectExtension)
-            var isValid = folder.name.hasSuffix(Constants.projectExtension)
+            let projectName = folder.name.deleting(suffix: "." + PathDispatcher.projectExtension)
+            var isValid = folder.name.hasSuffix(PathDispatcher.projectExtension)
             if filterNames.isEmpty == false {
                 isValid = isValid && filterNames.contains(projectName)
             }
@@ -334,7 +334,7 @@ public final class ProjectService {
     }
 
     private func frameworksInformation(frameworksDirectoryPath: String) throws -> [Framework] {
-        let frameworkFolder = try projectFolder.subfolder(at: "\(frameworksDirectoryPath)/Build/iOS")
+        let frameworkFolder = try projectFolder.subfolder(at: PathDispatcher.iOSFrameworksDirectory(path: frameworksDirectoryPath))
         let frameworks = frameworkFolder.subfolders.filter { $0.name.hasSuffix("framework") }
         return try frameworks.map(information)
     }
