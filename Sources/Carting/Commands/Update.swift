@@ -13,7 +13,7 @@ struct Update: ParsableCommand {
     @OptionGroup()
     var options: Options
 
-    @Flag(name: [.customLong("append-to-file"), .short], help: "Should output be appended to previous output")
+    @Flag(name: [.customLong("append-to-file"), .short], help: "Specify if output should be appended to previous output")
     var isAppendingToFile: Bool = false
 
     func run() throws {
