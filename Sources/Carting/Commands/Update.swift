@@ -14,7 +14,7 @@ struct Update: ParsableCommand {
     var options: Options
 
     @Flag(name: [.customLong("append to file"), .short], help: "Should output be appended to previous output")
-    var isAppendingToFile: Bool
+    var isAppendingToFile: Bool = false
 
     func run() throws {
         let projectService = ProjectService(projectDirectoryPath: options.path)

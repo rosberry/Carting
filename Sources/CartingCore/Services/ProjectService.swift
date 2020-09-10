@@ -27,7 +27,7 @@ public final class ProjectService {
         if let path = projectDirectoryPath, let folder = try? Folder(path: path) {
             return folder
         }
-        return FileSystem().currentFolder
+        return Folder.current
     }
 
     // MARK: - Lifecycle
@@ -326,7 +326,7 @@ public final class ProjectService {
     }
 
     private func frameworksInformation(frameworksDirectoryPath: String) throws -> [Framework] {
-        let frameworkFolder = try projectFolder.subfolder(atPath: "\(frameworksDirectoryPath)/Build/iOS")
+        let frameworkFolder = try projectFolder.subfolder(at: "\(frameworksDirectoryPath)/Build/iOS")
         let frameworks = frameworkFolder.subfolders.filter { $0.name.hasSuffix("framework") }
         return try frameworks.map(information)
     }
@@ -355,7 +355,7 @@ public final class ProjectService {
             let (oldContent, newContent) = try self.content(for: file, newContent: content, shouldAppend: shouldAppend)
             if oldContent != newContent {
                 try shellOut(to: "chmod +w \"\(file.name)\"", at: folder.path)
-                try file.write(string: newContent)
+                try file.write(newContent)
                 fileWereUpdated = true
                 print("✅ \(file.name) was successfully updated")
                 try shellOut(to: "chmod -w \"\(file.name)\"", at: folder.path)
@@ -363,7 +363,7 @@ public final class ProjectService {
         }
         else {
             let file = try folder.createFile(named: name)
-            try file.write(string: content)
+            try file.write(content)
             fileWereUpdated = true
             print("✅ \(file.name) was successfully added")
             try shellOut(to: "chmod -w \"\(file.name)\"", at: folder.path)

@@ -10,11 +10,11 @@ struct Info: ParsableCommand {
 
     static let configuration: CommandConfiguration = .init(abstract: "Prints Carthage frameworks list with linking description.")
 
-    @Option(name: [.short, .long], default: ProcessInfo.processInfo.environment["PROJECT_DIR"], help: "The project directory path.")
-    var path: String?
+    @Option(name: [.short, .long], help: "The project directory path.")
+    var path: String = ProcessInfo.processInfo.environment["PROJECT_DIR", default: ""]
 
-    @Option(name: [.short, .long], default: "Carthage", help: "The project directories that contains frameworks to proceed")
-    var frameworksDirectoryPath: String
+    @Option(name: [.short, .long], help: "The project directories that contains frameworks to proceed")
+    var frameworksDirectoryPath: String = "Carthage"
 
     func run() throws {
         let projectService = ProjectService(projectDirectoryPath: path)
