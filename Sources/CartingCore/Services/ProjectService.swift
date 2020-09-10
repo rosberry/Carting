@@ -21,7 +21,7 @@ public final class ProjectService {
         static let nothingToUpdate = "🤷‍♂️ Nothing to update."
     }
 
-    public let projectDirectoryPath: String?
+    private let projectDirectoryPath: String?
 
     private var projectFolder: Folder {
         if let path = projectDirectoryPath, let folder = try? Folder(path: path) {
@@ -40,7 +40,8 @@ public final class ProjectService {
                              format: Format,
                              targetName: String?,
                              projectNames: [String],
-                             frameworksDirectoryPath: String) throws {
+                             frameworksDirectoryPath: String,
+                             shouldAppend: Bool) throws {
         let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: projectNames)
         guard projectPaths.count > 0 else {
             print(Constants.nothingToUpdate)
@@ -51,7 +52,8 @@ public final class ProjectService {
                              format: format,
                              targetName: targetName,
                              projectPath: path,
-                             frameworksDirectoryPath: frameworksDirectoryPath)
+                             frameworksDirectoryPath: frameworksDirectoryPath,
+                             shouldAppend: shouldAppend)
         }
     }
 
@@ -59,13 +61,15 @@ public final class ProjectService {
                              format: Format,
                              targetName: String?,
                              projectPath: String,
-                             frameworksDirectoryPaths: [String]) throws {
+                             frameworksDirectoryPaths: [String],
+                             shouldAppend: Bool) throws {
         for path in frameworksDirectoryPaths {
             try updateScript(withName: scriptName,
                              format: format,
                              targetName: targetName,
                              projectPath: projectPath,
-                             frameworksDirectoryPath: path)
+                             frameworksDirectoryPath: path,
+                             shouldAppend: shouldAppend)
         }
     }
 
@@ -73,7 +77,8 @@ public final class ProjectService {
                              format: Format,
                              targetName: String?,
                              projectPath: String,
-                             frameworksDirectoryPath: String) throws {
+                             frameworksDirectoryPath: String,
+                             shouldAppend: Bool) throws {
         let xcodeproj = try XcodeProj(pathString: projectPath)
 
         var needUpdateProject = false
@@ -126,12 +131,14 @@ public final class ProjectService {
                 let inputFileListNewContent = inputPaths.joined(separator: "\n")
                 filelistsWereUpdated = try updateFile(in: listsFolder,
                                                       withName: inputFileListFileName,
-                                                      content: inputFileListNewContent)
+                                                      content: inputFileListNewContent,
+                                                      shouldAppend: shouldAppend)
 
                 let outputFileListNewContent = outputPaths.joined(separator: "\n")
                 filelistsWereUpdated = try updateFile(in: listsFolder,
                                                       withName: outputFileListFileName,
-                                                      content: outputFileListNewContent)
+                                                      content: outputFileListNewContent,
+                                                      shouldAppend: shouldAppend)
 
                 if let projectBuildPhase = projectBuildPhase {
                     scriptHasBeenUpdated = projectBuildPhase.update(shellScript: Constants.carthageScript)
@@ -341,13 +348,14 @@ public final class ProjectService {
     }
 
     @discardableResult
-    private func updateFile(in folder: Folder, withName name: String, content: String) throws -> Bool {
+    private func updateFile(in folder: Folder, withName name: String, content: String, shouldAppend: Bool) throws -> Bool {
         var fileWereUpdated = false
         if folder.containsFile(named: name) {
             let file = try folder.file(named: name)
-            if let oldContent = try? file.readAsString(), oldContent != content {
+            let (oldContent, newContent) = try self.content(for: file, newContent: content, shouldAppend: shouldAppend)
+            if oldContent != newContent {
                 try shellOut(to: "chmod +w \"\(file.name)\"", at: folder.path)
-                try file.write(string: content)
+                try file.write(string: newContent)
                 fileWereUpdated = true
                 print("✅ \(file.name) was successfully updated")
                 try shellOut(to: "chmod -w \"\(file.name)\"", at: folder.path)
@@ -361,6 +369,11 @@ public final class ProjectService {
             try shellOut(to: "chmod -w \"\(file.name)\"", at: folder.path)
         }
         return fileWereUpdated
+    }
+
+    private func content(for file: File, newContent: String, shouldAppend: Bool) throws -> (oldContent: String, newContent: String) {
+        let fileContent = try file.readAsString()
+        return (fileContent, shouldAppend ? (fileContent + newContent) : (newContent))
     }
 }
 
