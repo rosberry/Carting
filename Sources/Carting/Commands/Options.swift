@@ -23,6 +23,6 @@ struct Options: ParsableArguments {
     @Option(name: [.short, .long], help: "The project target name.")
     var target: String = ProcessInfo.processInfo.environment["TARGET_NAME", default: ""]
 
-    @Option(name: [.customShort("n"), .long], help: "The names of projects.")
+    @Argument(help: "The names of projects.")
     var projectNames: [String]
 }

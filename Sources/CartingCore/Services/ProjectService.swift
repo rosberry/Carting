@@ -21,10 +21,10 @@ public final class ProjectService {
         static let nothingToUpdate = "🤷‍♂️ Nothing to update."
     }
 
-    private let projectDirectoryPath: String?
+    private let projectDirectoryPath: String
 
     private var projectFolder: Folder {
-        if let path = projectDirectoryPath, let folder = try? Folder(path: path) {
+        if !projectDirectoryPath.isEmpty, let folder = try? Folder(path: projectDirectoryPath) {
             return folder
         }
         return Folder.current
@@ -32,13 +32,13 @@ public final class ProjectService {
 
     // MARK: - Lifecycle
 
-    public init(projectDirectoryPath: String?) {
+    public init(projectDirectoryPath: String) {
         self.projectDirectoryPath = projectDirectoryPath
     }
 
     public func updateScript(withName scriptName: String,
                              format: Format,
-                             targetName: String?,
+                             targetName: String,
                              projectNames: [String],
                              frameworksDirectoryPath: String,
                              shouldAppend: Bool) throws {
@@ -59,7 +59,7 @@ public final class ProjectService {
 
     public func updateScript(withName scriptName: String,
                              format: Format,
-                             targetName: String?,
+                             targetName: String,
                              projectPath: String,
                              frameworksDirectoryPaths: [String],
                              shouldAppend: Bool) throws {
@@ -75,7 +75,7 @@ public final class ProjectService {
 
     public func updateScript(withName scriptName: String,
                              format: Format,
-                             targetName: String?,
+                             targetName: String,
                              projectPath: String,
                              frameworksDirectoryPath: String,
                              shouldAppend: Bool) throws {
@@ -182,7 +182,7 @@ public final class ProjectService {
 
     public func lintScript(withName scriptName: String,
                            format: Format,
-                           targetName: String?,
+                           targetName: String,
                            projectNames: [String],
                            frameworksDirectoryPath: String) throws {
         let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: projectNames)
@@ -201,7 +201,7 @@ public final class ProjectService {
 
     public func lintScript(withName scriptName: String,
                            format: Format,
-                           targetName: String?,
+                           targetName: String,
                            projectPath: String,
                            frameworksDirectoryPaths: [String]) throws {
         for path in frameworksDirectoryPaths {
@@ -215,7 +215,7 @@ public final class ProjectService {
 
     public func lintScript(withName scriptName: String,
                            format: Format,
-                           targetName: String?,
+                           targetName: String,
                            projectPath: String,
                            frameworksDirectoryPath: String) throws {
         let xcodeproj = try XcodeProj(pathString: projectPath)
@@ -293,10 +293,10 @@ public final class ProjectService {
         targetName + "-outputPaths.xcfilelist"
     }
 
-    private func targets(in project: XcodeProj, withName name: String?) throws -> [PBXNativeTarget] {
+    private func targets(in project: XcodeProj, withName name: String) throws -> [PBXNativeTarget] {
         let filteredTargets = project.targets(with: .application, name: name)
 
-        if let name = name, filteredTargets.isEmpty {
+        if !name.isEmpty, filteredTargets.isEmpty {
             throw Error.targetFilterFailed(name: name)
         }
 
