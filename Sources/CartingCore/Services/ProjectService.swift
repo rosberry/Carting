@@ -83,43 +83,66 @@ public final class ProjectService {
                              projectPath: String,
                              frameworksDirectoryPath: String,
                              shouldAppend: Bool) throws {
-        let xcodeproj = try XcodeProj(pathString: projectPath)
+        let (xcodeproj, filteredTargets, dynamicFrameworks) = try initialContext(projectPath: projectPath,
+                                                                                 targetName: targetName,
+                                                                                 frameworksDirectoryPath: frameworksDirectoryPath)
 
         var needUpdateProject = false
         var filelistsWereUpdated = false
 
-        let filteredTargets = try targets(in: xcodeproj, withName: targetName)
+        func updateBuildPhaseForFile(_ buildPhase: PBXShellScriptBuildPhase?,
+                                     in target: PBXNativeTarget,
+                                     inputPaths: [String],
+                                     outputPaths: [String]) -> Bool {
+            if let projectBuildPhase = buildPhase {
+                return projectBuildPhase.update(shellScript: carthageCopyFrameworks) ||
+                       projectBuildPhase.update(inputPaths: inputPaths, outputPaths: outputPaths)
+            }
+            else {
+                let buildPhase = PBXShellScriptBuildPhase(name: scriptName,
+                                                          inputPaths: inputPaths,
+                                                          outputPaths: outputPaths,
+                                                          shellScript: carthageCopyFrameworks)
 
-        if filteredTargets.isEmpty {
-            throw Error.noTargets(name: targetName)
+                target.buildPhases.append(buildPhase)
+                xcodeproj.pbxproj.add(object: buildPhase)
+                return true
+            }
         }
 
-        let dynamicFrameworks = try dynamicFrameworksInformation(frameworksDirectoryPath: frameworksDirectoryPath)
+        func updateBuildPhaseForList(_ buildPhase: PBXShellScriptBuildPhase?,
+                                     in target: PBXNativeTarget,
+                                     inputFileListPath: String,
+                                     outputFileListPath: String) -> Bool {
+            if let projectBuildPhase = buildPhase {
+                return projectBuildPhase.update(shellScript: carthageCopyFrameworks) ||
+                       projectBuildPhase.update(inputFileListPath: inputFileListPath,
+                                                outputFileListPath: outputFileListPath)
+            }
+            else {
+                let buildPhase = PBXShellScriptBuildPhase(name: scriptName,
+                                                          inputFileListPaths: [inputFileListPath],
+                                                          outputFileListPaths: [outputFileListPath],
+                                                          shellScript: carthageCopyFrameworks)
 
-        try filteredTargets.forEach { target in
-            let inputPaths = target.paths(for: dynamicFrameworks, type: .input(frameworksDirectoryPath: frameworksDirectoryPath))
-            let outputPaths = target.paths(for: dynamicFrameworks, type: .output)
+                target.buildPhases.append(buildPhase)
+                xcodeproj.pbxproj.add(object: buildPhase)
+                return true
+            }
+        }
 
-            let targetBuildPhase = target.buildPhases.first { $0.name() == scriptName }
+        func proceed(target: PBXNativeTarget) throws {
+            let (inputPaths, outputPaths) = paths(in: target, at: frameworksDirectoryPath, frameworks: dynamicFrameworks)
+            let targetBuildPhase = target.buildPhases.first(with: scriptName, at: \.name)
             let projectBuildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first { $0.uuid == targetBuildPhase?.uuid }
 
-            var scriptHasBeenUpdated = false
+            let scriptHasBeenUpdated: Bool
             switch format {
             case .file:
-                if let projectBuildPhase = projectBuildPhase {
-                    scriptHasBeenUpdated = projectBuildPhase.update(shellScript: carthageCopyFrameworks)
-                    scriptHasBeenUpdated = projectBuildPhase.update(inputPaths: inputPaths, outputPaths: outputPaths)
-                }
-                else {
-                    let buildPhase = PBXShellScriptBuildPhase(name: scriptName,
-                                                              inputPaths: outputPaths,
-                                                              outputPaths: outputPaths,
-                                                              shellScript: carthageCopyFrameworks)
-
-                    target.buildPhases.append(buildPhase)
-                    xcodeproj.pbxproj.add(object: buildPhase)
-                    scriptHasBeenUpdated = true
-                }
+                scriptHasBeenUpdated = updateBuildPhaseForFile(projectBuildPhase,
+                                                               in: target,
+                                                               inputPaths: inputPaths,
+                                                               outputPaths: outputPaths)
             case .list:
                 let listsFolder = try projectFolder.createSubfolderIfNeeded(withName: "xcfilelists")
                 let xcfilelistsFolderPath = listsFolder.path
@@ -144,26 +167,19 @@ public final class ProjectService {
                                                       content: outputFileListNewContent,
                                                       shouldAppend: shouldAppend)
 
-                if let projectBuildPhase = projectBuildPhase {
-                    scriptHasBeenUpdated = projectBuildPhase.update(shellScript: carthageCopyFrameworks)
-                    scriptHasBeenUpdated = projectBuildPhase.update(inputFileListPath: inputFileListPath,
-                                                                    outputFileListPath: outputFileListPath)
-                }
-                else {
-                    let buildPhase = PBXShellScriptBuildPhase(name: scriptName,
-                                                              inputFileListPaths: [inputFileListPath],
-                                                              outputFileListPaths: [outputFileListPath],
-                                                              shellScript: carthageCopyFrameworks)
-
-                    target.buildPhases.append(buildPhase)
-                    xcodeproj.pbxproj.add(object: buildPhase)
-                    scriptHasBeenUpdated = true
-                }
+                scriptHasBeenUpdated = updateBuildPhaseForList(projectBuildPhase,
+                                                               in: target,
+                                                               inputFileListPath: inputFileListPath,
+                                                               outputFileListPath: outputFileListPath)
             }
             if scriptHasBeenUpdated {
                 needUpdateProject = true
                 print("✅ Script \(scriptName) in target \(target.name) was successfully updated.")
             }
+        }
+
+        try filteredTargets.forEach { target in
+            try proceed(target: target)
         }
 
         if needUpdateProject {
@@ -226,35 +242,18 @@ public final class ProjectService {
                            targetName: String,
                            projectPath: String,
                            frameworksDirectoryPath: String) throws {
-        let xcodeproj = try XcodeProj(pathString: projectPath)
 
-        let filteredTargets = try targets(in: xcodeproj, withName: targetName)
-
-        if filteredTargets.isEmpty {
-            throw Error.noTargets(name: targetName)
-        }
-
-        let dynamicFrameworks = try dynamicFrameworksInformation(frameworksDirectoryPath: frameworksDirectoryPath)
-
-        try filteredTargets.forEach { target in
-
-            let inputPaths = target.paths(for: dynamicFrameworks, type: .input(frameworksDirectoryPath: frameworksDirectoryPath))
-            let outputPaths = target.paths(for: dynamicFrameworks, type: .output)
-
-            let targetBuildPhase = target.buildPhases.first(with: scriptName, at: \.name)
-            let buildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first(with: targetBuildPhase?.uuid, at: \.uuid)
-
-            guard let projectBuildPhase = buildPhase else {
-                return
-            }
-
+        func missingPaths(for target: PBXNativeTarget,
+                          buildPhase: PBXShellScriptBuildPhase,
+                          inputPaths: [String],
+                          outputPaths: [String]) throws -> [String] {
             var missingPaths = [String]()
             var projectInputPaths = [String]()
             var projectOutputPaths = [String]()
             switch format {
             case .file:
-                projectInputPaths = projectBuildPhase.inputPaths
-                projectOutputPaths = projectBuildPhase.outputPaths
+                projectInputPaths = buildPhase.inputPaths
+                projectOutputPaths = buildPhase.outputPaths
             case .list:
                 let listsFolder = try projectFolder.createSubfolderIfNeeded(withName: "xcfilelists")
                 let xcfilelistsFolderPath = listsFolder.path
@@ -267,7 +266,7 @@ public final class ProjectService {
                 let outputFileListFileName = outputFileListName(forTargetName: target.name)
                 let outputFileListPath = [xcfilelistsFolderPath, outputFileListFileName].joined(separator: "/")
 
-                if projectBuildPhase.inputFileListPaths?.contains(inputFileListPath) == false {
+                if buildPhase.inputFileListPaths?.contains(inputFileListPath) == false {
                     missingPaths.append(inputFileListPath)
                     break
                 }
@@ -275,8 +274,8 @@ public final class ProjectService {
                     projectInputPaths = try inputFile.readAsString().split(separator: "\n").map(String.init)
                 }
 
-                if projectBuildPhase.outputFileListPaths?.contains(outputFileListPath) == false {
-                    missingPaths.append(inputFileListPath)
+                if buildPhase.outputFileListPaths?.contains(outputFileListPath) == false {
+                    missingPaths.append(outputFileListPath)
                     break
                 }
                 if let outputFile = try? listsFolder.file(named: outputFileListFileName) {
@@ -285,13 +284,55 @@ public final class ProjectService {
             }
             missingPaths.append(contentsOf: inputPaths.filter { projectInputPaths.contains($0) == false })
             missingPaths.append(contentsOf: outputPaths.filter { projectOutputPaths.contains($0) == false })
-            for path in missingPaths {
+            return missingPaths
+        }
+
+        func proceed(target: PBXNativeTarget, frameworks: [Framework]) throws {
+
+            let targetBuildPhase = target.buildPhases.first(with: scriptName, at: \.name)
+            guard let buildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first(with: targetBuildPhase?.uuid, at: \.uuid) else {
+                return
+            }
+
+            let (inputPaths, outputPaths) = paths(in: target, at: frameworksDirectoryPath, frameworks: frameworks)
+            for path in (try missingPaths(for: target, buildPhase: buildPhase, inputPaths: inputPaths, outputPaths: outputPaths)) {
                 print("error: Missing \(path) in \(target.name) target")
             }
+        }
+
+        let (xcodeproj, filteredTargets, dynamicFrameworks) = try initialContext(projectPath: projectPath,
+                                                                                 targetName: targetName,
+                                                                                 frameworksDirectoryPath: frameworksDirectoryPath)
+
+        try filteredTargets.forEach { target in
+            try proceed(target: target, frameworks: dynamicFrameworks)
         }
     }
 
     // MARK: - Private
+
+    private func initialContext(projectPath: String,
+                                targetName: String,
+                                frameworksDirectoryPath: String) throws -> (XcodeProj, [PBXNativeTarget], [Framework]) {
+        let xcodeproj = try XcodeProj(pathString: projectPath)
+
+        let filteredTargets = try targets(in: xcodeproj, withName: targetName)
+
+        if filteredTargets.isEmpty {
+            throw Error.noTargets(name: targetName)
+        }
+
+        let dynamicFrameworks = try dynamicFrameworksInformation(frameworksDirectoryPath: frameworksDirectoryPath)
+
+        return (xcodeproj, filteredTargets, dynamicFrameworks)
+    }
+
+    private func paths(in target: PBXNativeTarget,
+                       at frameworksDirectoryPath: String,
+                       frameworks: [Framework]) -> (input: [String], output: [String]) {
+        (target.paths(for: frameworks, type: .input(frameworksDirectoryPath: frameworksDirectoryPath)),
+         target.paths(for: frameworks, type: .output))
+    }
 
     private func inputFileListName(forTargetName targetName: String) -> String {
         targetName + "-inputPaths.xcfilelist"
