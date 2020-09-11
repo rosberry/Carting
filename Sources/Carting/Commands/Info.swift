@@ -14,10 +14,10 @@ struct Info: ParsableCommand {
     var path: String = PathDispatcher.defaultProjectDirectoryPath
 
     @Argument(help: "The project directory that contains frameworks to proceed")
-    var frameworksDirectoryPath: String = PathDispatcher.defaultFrameworksDirectory
+    var frameworksDirectoryName: String = PathDispatcher.defaultFrameworksDirectory
 
     func run() throws {
         let projectService = ProjectService(projectDirectoryPath: path)
-        try projectService.printFrameworksInformation(frameworksDirectoryPath: frameworksDirectoryPath)
+        try projectService.printFrameworksInformation(frameworksDirectoryName: frameworksDirectoryName)
     }
 }

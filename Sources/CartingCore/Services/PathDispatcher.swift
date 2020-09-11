@@ -11,7 +11,7 @@ public enum PathDispatcher {
     public static let defaultProjectDirectoryPath: String = ProcessInfo.processInfo.environment["PROJECT_DIR", default: ""]
     public static let listsFolderName: String = "xcfilelists"
 
-    public static func iOSFrameworksDirectory(path: String) -> String {
-        "\(path)/Build/iOS"
+    public static func iOSFrameworksDirectory(name: String) -> String {
+        "\(name)/Build/iOS"
     }
 }

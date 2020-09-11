@@ -20,9 +20,9 @@ struct Options: ParsableArguments {
     @Option(name: [.short, .long], help: "The project target name.")
     var target: String = ProcessInfo.processInfo.environment["TARGET_NAME", default: ""]
 
-    @Option(help: "The names of projects. If specified, only first (or default) frameworksDirectoryPath will be proceed")
+    @Option(help: "The names of projects. If specified, only first (or default) frameworksDirectoryName will be proceed")
     var projectNames: [String] = []
 
     @Argument(help: "The project directories that contains frameworks to proceed")
-    var frameworksDirectoryPaths: [String] = [PathDispatcher.defaultFrameworksDirectory]
+    var frameworksDirectoryNames: [String] = [PathDispatcher.defaultFrameworksDirectory]
 }

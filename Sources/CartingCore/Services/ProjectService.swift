@@ -40,7 +40,7 @@ public final class ProjectService {
                              format: Format,
                              targetName: String,
                              projectNames: [String],
-                             frameworksDirectoryPath: String) throws {
+                             frameworksDirectoryName: String) throws {
         let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: projectNames)
         guard projectPaths.count > 0 else {
             print(Constants.nothingToUpdate)
@@ -51,7 +51,7 @@ public final class ProjectService {
                              format: format,
                              targetName: targetName,
                              projectPath: path,
-                             frameworksDirectoryPath: frameworksDirectoryPath,
+                             frameworksDirectoryName: frameworksDirectoryName,
                              shouldAppend: false)
         }
     }
@@ -59,19 +59,19 @@ public final class ProjectService {
     public func updateScript(withName scriptName: String,
                              format: Format,
                              targetName: String,
-                             frameworksDirectoryPaths: [String]) throws {
+                             frameworksDirectoryNames: [String]) throws {
         let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: [])
         guard let projectPath = projectPaths.first else {
             print(Constants.nothingToUpdate)
             return
         }
         try removeListsDirectory()
-        for path in frameworksDirectoryPaths {
+        for path in frameworksDirectoryNames {
             try updateScript(withName: scriptName,
                              format: format,
                              targetName: targetName,
                              projectPath: projectPath,
-                             frameworksDirectoryPath: path,
+                             frameworksDirectoryName: path,
                              shouldAppend: true)
         }
     }
@@ -80,7 +80,7 @@ public final class ProjectService {
                              format: Format,
                              targetName: String,
                              projectPath: String,
-                             frameworksDirectoryPath: String,
+                             frameworksDirectoryName: String,
                              shouldAppend: Bool) throws {
         func updateBuildPhaseForFile(_ buildPhase: PBXShellScriptBuildPhase?,
                                      in target: PBXNativeTarget,
@@ -124,7 +124,7 @@ public final class ProjectService {
         }
 
         func proceed(target: PBXNativeTarget) throws {
-            let (inputPaths, outputPaths) = paths(in: target, at: frameworksDirectoryPath, frameworks: dynamicFrameworks)
+            let (inputPaths, outputPaths) = paths(in: target, at: frameworksDirectoryName, frameworks: dynamicFrameworks)
             let targetBuildPhase = target.buildPhases.first(with: scriptName, at: \.name)
             let projectBuildPhase = xcodeproj.pbxproj.shellScriptBuildPhases.first { $0.uuid == targetBuildPhase?.uuid }
 
@@ -172,7 +172,7 @@ public final class ProjectService {
 
         let (xcodeproj, filteredTargets, dynamicFrameworks) = try initialContext(projectPath: projectPath,
                                                                                  targetName: targetName,
-                                                                                 frameworksDirectoryPath: frameworksDirectoryPath)
+                                                                                 frameworksDirectoryName: frameworksDirectoryName)
 
         var needUpdateProject = false
         var filelistsWereUpdated = false
@@ -189,8 +189,8 @@ public final class ProjectService {
         }
     }
 
-    public func printFrameworksInformation(frameworksDirectoryPath: String) throws {
-        let informations = try frameworksInformation(frameworksDirectoryPath: frameworksDirectoryPath)
+    public func printFrameworksInformation(frameworksDirectoryName: String) throws {
+        let informations = try frameworksInformation(frameworksDirectoryName: frameworksDirectoryName)
         informations.forEach { information in
             let description = [information.name, information.linking.rawValue].joined(separator: "\t\t") +
                               "\t" +
@@ -203,7 +203,7 @@ public final class ProjectService {
                            format: Format,
                            targetName: String,
                            projectNames: [String],
-                           frameworksDirectoryPath: String) throws {
+                           frameworksDirectoryName: String) throws {
         let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: projectNames)
         guard projectPaths.count > 0 else {
             print(Constants.nothingToLint)
@@ -214,25 +214,25 @@ public final class ProjectService {
                            format: format,
                            targetName: targetName,
                            projectPath: path,
-                           frameworksDirectoryPath: frameworksDirectoryPath)
+                           frameworksDirectoryName: frameworksDirectoryName)
         }
     }
 
     public func lintScript(withName scriptName: String,
                            format: Format,
                            targetName: String,
-                           frameworksDirectoryPaths: [String]) throws {
+                           frameworksDirectoryNames: [String]) throws {
         let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: [])
         guard let projectPath = projectPaths.first else {
             print(Constants.nothingToLint)
             return
         }
-        for path in frameworksDirectoryPaths {
+        for path in frameworksDirectoryNames {
             try lintScript(withName: scriptName,
                            format: format,
                            targetName: targetName,
                            projectPath: projectPath,
-                           frameworksDirectoryPath: path)
+                           frameworksDirectoryName: path)
         }
     }
 
@@ -240,7 +240,7 @@ public final class ProjectService {
                            format: Format,
                            targetName: String,
                            projectPath: String,
-                           frameworksDirectoryPath: String) throws {
+                           frameworksDirectoryName: String) throws {
 
         func missingPaths(for target: PBXNativeTarget,
                           buildPhase: PBXShellScriptBuildPhase,
@@ -293,7 +293,7 @@ public final class ProjectService {
                 return
             }
 
-            let (inputPaths, outputPaths) = paths(in: target, at: frameworksDirectoryPath, frameworks: frameworks)
+            let (inputPaths, outputPaths) = paths(in: target, at: frameworksDirectoryName, frameworks: frameworks)
             for path in (try missingPaths(for: target, buildPhase: buildPhase, inputPaths: inputPaths, outputPaths: outputPaths)) {
                 print("error: Missing \(path) in \(target.name) target")
             }
@@ -301,7 +301,7 @@ public final class ProjectService {
 
         let (xcodeproj, filteredTargets, dynamicFrameworks) = try initialContext(projectPath: projectPath,
                                                                                  targetName: targetName,
-                                                                                 frameworksDirectoryPath: frameworksDirectoryPath)
+                                                                                 frameworksDirectoryName: frameworksDirectoryName)
 
         try filteredTargets.forEach { target in
             try proceed(target: target, frameworks: dynamicFrameworks)
@@ -316,7 +316,7 @@ public final class ProjectService {
 
     private func initialContext(projectPath: String,
                                 targetName: String,
-                                frameworksDirectoryPath: String) throws -> (XcodeProj, [PBXNativeTarget], [Framework]) {
+                                frameworksDirectoryName: String) throws -> (XcodeProj, [PBXNativeTarget], [Framework]) {
         let xcodeproj = try XcodeProj(pathString: projectPath)
 
         let filteredTargets = try targets(in: xcodeproj, withName: targetName)
@@ -325,15 +325,15 @@ public final class ProjectService {
             throw Error.noTargets(name: targetName)
         }
 
-        let dynamicFrameworks = try dynamicFrameworksInformation(frameworksDirectoryPath: frameworksDirectoryPath)
+        let dynamicFrameworks = try dynamicFrameworksInformation(frameworksDirectoryName: frameworksDirectoryName)
 
         return (xcodeproj, filteredTargets, dynamicFrameworks)
     }
 
     private func paths(in target: PBXNativeTarget,
-                       at frameworksDirectoryPath: String,
+                       at frameworksDirectoryName: String,
                        frameworks: [Framework]) -> (input: [String], output: [String]) {
-        (target.paths(for: frameworks, type: .input(frameworksDirectoryPath: frameworksDirectoryPath)),
+        (target.paths(for: frameworks, type: .input(frameworksDirectoryName: frameworksDirectoryName)),
          target.paths(for: frameworks, type: .output))
     }
 
@@ -377,14 +377,14 @@ public final class ProjectService {
         }
     }
 
-    private func frameworksInformation(frameworksDirectoryPath: String) throws -> [Framework] {
-        let frameworkFolder = try projectFolder.subfolder(at: PathDispatcher.iOSFrameworksDirectory(path: frameworksDirectoryPath))
+    private func frameworksInformation(frameworksDirectoryName: String) throws -> [Framework] {
+        let frameworkFolder = try projectFolder.subfolder(at: PathDispatcher.iOSFrameworksDirectory(name: frameworksDirectoryName))
         let frameworks = frameworkFolder.subfolders.filter { $0.name.hasSuffix("framework") }
         return try frameworks.map(information)
     }
 
-    private func dynamicFrameworksInformation(frameworksDirectoryPath: String) throws -> [Framework] {
-        try frameworksInformation(frameworksDirectoryPath: frameworksDirectoryPath).filter { information in
+    private func dynamicFrameworksInformation(frameworksDirectoryName: String) throws -> [Framework] {
+        try frameworksInformation(frameworksDirectoryName: frameworksDirectoryName).filter { information in
             information.linking == .dynamic
         }
     }

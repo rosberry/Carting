@@ -16,18 +16,18 @@ struct Update: ParsableCommand {
     func run() throws {
         let projectService = ProjectService(projectDirectoryPath: options.path)
         if !options.projectNames.isEmpty,
-           let frameworksDirectoryPath = options.frameworksDirectoryPaths.first {
+           let frameworksDirectoryName = options.frameworksDirectoryNames.first {
             try projectService.updateScript(withName: options.script,
                                             format: options.format,
                                             targetName: options.target,
                                             projectNames: options.projectNames,
-                                            frameworksDirectoryPath: frameworksDirectoryPath)
+                                            frameworksDirectoryName: frameworksDirectoryName)
         }
         else {
             try projectService.updateScript(withName: options.script,
                                             format: options.format,
                                             targetName: options.target,
-                                            frameworksDirectoryPaths: options.frameworksDirectoryPaths)
+                                            frameworksDirectoryNames: options.frameworksDirectoryNames)
         }
     }
 }
