@@ -40,8 +40,7 @@ public final class ProjectService {
                              format: Format,
                              targetName: String,
                              projectNames: [String],
-                             frameworksDirectoryPath: String,
-                             shouldAppend: Bool) throws {
+                             frameworksDirectoryPath: String) throws {
         let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: projectNames)
         guard projectPaths.count > 0 else {
             print(Constants.nothingToUpdate)
@@ -53,31 +52,31 @@ public final class ProjectService {
                              targetName: targetName,
                              projectPath: path,
                              frameworksDirectoryPath: frameworksDirectoryPath,
-                             shouldAppend: shouldAppend)
+                             shouldAppend: false)
         }
     }
 
     public func updateScript(withName scriptName: String,
                              format: Format,
                              targetName: String,
-                             frameworksDirectoryPaths: [String],
-                             shouldAppend: Bool) throws {
+                             frameworksDirectoryPaths: [String]) throws {
         let projectPaths = try self.projectPaths(inDirectory: projectDirectoryPath, filterNames: [])
         guard let projectPath = projectPaths.first else {
             print(Constants.nothingToUpdate)
             return
         }
+        try removeListsDirectory()
         for path in frameworksDirectoryPaths {
             try updateScript(withName: scriptName,
                              format: format,
                              targetName: targetName,
                              projectPath: projectPath,
                              frameworksDirectoryPath: path,
-                             shouldAppend: shouldAppend)
+                             shouldAppend: true)
         }
     }
 
-    public func updateScript(withName scriptName: String,
+    private func updateScript(withName scriptName: String,
                              format: Format,
                              targetName: String,
                              projectPath: String,
@@ -137,7 +136,7 @@ public final class ProjectService {
                                                                inputPaths: inputPaths,
                                                                outputPaths: outputPaths)
             case .list:
-                let listsFolder = try projectFolder.createSubfolderIfNeeded(withName: "xcfilelists")
+                let listsFolder = try projectFolder.createSubfolderIfNeeded(withName: PathDispatcher.listsFolderName)
                 let xcfilelistsFolderPath = listsFolder.path
                         .replacingOccurrences(of: projectFolder.path, with: PathDispatcher.srcRoot)
                         .deleting(suffix: "/")
@@ -237,7 +236,7 @@ public final class ProjectService {
         }
     }
 
-    public func lintScript(withName scriptName: String,
+    private func lintScript(withName scriptName: String,
                            format: Format,
                            targetName: String,
                            projectPath: String,
@@ -255,7 +254,7 @@ public final class ProjectService {
                 projectInputPaths = buildPhase.inputPaths
                 projectOutputPaths = buildPhase.outputPaths
             case .list:
-                let listsFolder = try projectFolder.createSubfolderIfNeeded(withName: "xcfilelists")
+                let listsFolder = try projectFolder.createSubfolderIfNeeded(withName: PathDispatcher.listsFolderName)
                 let xcfilelistsFolderPath = listsFolder.path
                         .replacingOccurrences(of: projectFolder.path, with: PathDispatcher.srcRoot)
                         .deleting(suffix: "/")
@@ -310,6 +309,10 @@ public final class ProjectService {
     }
 
     // MARK: - Private
+
+    private func removeListsDirectory() throws {
+        try projectFolder.subfolder(named: "xcfilelists").delete()
+    }
 
     private func initialContext(projectPath: String,
                                 targetName: String,
@@ -422,7 +425,7 @@ public final class ProjectService {
 
     private func content(for file: File, newContent: String, shouldAppend: Bool) throws -> (oldContent: String, newContent: String) {
         let fileContent = try file.readAsString()
-        return (fileContent, shouldAppend ? (fileContent + newContent) : (newContent))
+        return (fileContent, shouldAppend ? (fileContent + "\n" + newContent) : (newContent))
     }
 }
 

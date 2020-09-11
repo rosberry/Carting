@@ -9,6 +9,7 @@ public enum PathDispatcher {
     public static let carthageScriptPath: String = "/usr/local/bin/carthage"
     public static let defaultFrameworksDirectory: String = "Carthage"
     public static let defaultProjectDirectoryPath: String = ProcessInfo.processInfo.environment["PROJECT_DIR", default: ""]
+    public static let listsFolderName: String = "xcfilelists"
 
     public static func iOSFrameworksDirectory(path: String) -> String {
         "\(path)/Build/iOS"
