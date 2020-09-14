@@ -25,4 +25,13 @@ struct Options: ParsableArguments {
 
     @Argument(help: "The project directories that contains frameworks to proceed")
     var frameworksDirectoryNames: [String] = [PathDispatcher.defaultFrameworksDirectory]
+
+    var projectServiceContext: ProjectService.Context {
+        .init(scriptName: script,
+              projectPath: path,
+              format: format,
+              target: target,
+              projectNames: projectNames,
+              frameworksDirectoryNames: frameworksDirectoryNames)
+    }
 }

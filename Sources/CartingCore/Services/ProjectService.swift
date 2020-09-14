@@ -36,6 +36,23 @@ public final class ProjectService {
         self.projectDirectoryPath = projectDirectoryPath
     }
 
+    public func updateScript(with context: Context) throws {
+        if !context.projectNames.isEmpty,
+           let frameworksDirectoryName = context.frameworksDirectoryNames.first {
+            try updateScript(withName: context.scriptName,
+                             format: context.format,
+                             targetName: context.target,
+                             projectNames: context.projectNames,
+                             frameworksDirectoryName: frameworksDirectoryName)
+        }
+        else {
+            try updateScript(withName: context.scriptName,
+                             format: context.format,
+                             targetName: context.target,
+                             frameworksDirectoryNames: context.frameworksDirectoryNames)
+        }
+    }
+
     public func updateScript(withName scriptName: String,
                              format: Format,
                              targetName: String,
@@ -77,11 +94,11 @@ public final class ProjectService {
     }
 
     private func updateScript(withName scriptName: String,
-                             format: Format,
-                             targetName: String,
-                             projectPath: String,
-                             frameworksDirectoryName: String,
-                             shouldAppend: Bool) throws {
+                              format: Format,
+                              targetName: String,
+                              projectPath: String,
+                              frameworksDirectoryName: String,
+                              shouldAppend: Bool) throws {
         func updateBuildPhaseForFile(_ buildPhase: PBXShellScriptBuildPhase?,
                                      in target: PBXNativeTarget,
                                      inputPaths: [String],
@@ -199,6 +216,23 @@ public final class ProjectService {
         }
     }
 
+    public func lintScript(with context: Context) throws {
+        if !context.projectNames.isEmpty,
+           let frameworksDirectoryName = context.frameworksDirectoryNames.first {
+            try projectService.lintScript(withName: context.script,
+                                          format: context.format,
+                                          targetName: context.target,
+                                          projectNames: context.projectNames,
+                                          frameworksDirectoryName: frameworksDirectoryName)
+        }
+        else {
+            try projectService.lintScript(withName: context.script,
+                                          format: context.format,
+                                          targetName: context.target,
+                                          frameworksDirectoryNames: context.frameworksDirectoryNames)
+        }
+    }
+
     public func lintScript(withName scriptName: String,
                            format: Format,
                            targetName: String,
@@ -237,10 +271,10 @@ public final class ProjectService {
     }
 
     private func lintScript(withName scriptName: String,
-                           format: Format,
-                           targetName: String,
-                           projectPath: String,
-                           frameworksDirectoryName: String) throws {
+                            format: Format,
+                            targetName: String,
+                            projectPath: String,
+                            frameworksDirectoryName: String) throws {
 
         func missingPaths(for target: PBXNativeTarget,
                           buildPhase: PBXShellScriptBuildPhase,
