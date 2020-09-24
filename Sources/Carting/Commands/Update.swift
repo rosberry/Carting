@@ -14,10 +14,7 @@ struct Update: ParsableCommand {
     var options: Options
 
     func run() throws {
-        let projectService = try ProjectService(projectDirectoryPath: options.path)
-        try projectService.updateScript(withName: options.script,
-                                        format: options.format,
-                                        targetName: options.target,
-                                        projectNames: options.projectNames)
+        let projectService = ProjectService(projectDirectoryPath: options.path)
+        try projectService.updateScript(with: options.projectServiceContext)
     }
 }

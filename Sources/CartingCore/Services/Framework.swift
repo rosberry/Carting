@@ -2,7 +2,7 @@
 //  Copyright © 2019 Artem Novichkov. All rights reserved.
 //
 
-struct Framework {
+struct Framework: Hashable {
 
     enum Architecture: String {
         case i386, x86_64, armv7, arm64 //swiftlint:disable:this identifier_name

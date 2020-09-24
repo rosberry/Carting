@@ -24,7 +24,7 @@ extension PBXNativeTarget {
         let linkedCarthageDynamicFrameworkNames = linkedFrameworks(withNames: frameworks.map(\.name))
 
         return linkedCarthageDynamicFrameworkNames.map { frameworkName in
-            return type.prefix + frameworkName
+            type.prefix + frameworkName
         }
     }
 }
