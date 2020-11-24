@@ -219,17 +219,17 @@ public final class ProjectService {
     public func lintScript(with context: Context) throws {
         if !context.projectNames.isEmpty,
            let frameworksDirectoryName = context.frameworksDirectoryNames.first {
-            try projectService.lintScript(withName: context.script,
-                                          format: context.format,
-                                          targetName: context.target,
-                                          projectNames: context.projectNames,
-                                          frameworksDirectoryName: frameworksDirectoryName)
+            try lintScript(withName: context.scriptName,
+                           format: context.format,
+                           targetName: context.target,
+                           projectNames: context.projectNames,
+                           frameworksDirectoryName: frameworksDirectoryName)
         }
         else {
-            try projectService.lintScript(withName: context.script,
-                                          format: context.format,
-                                          targetName: context.target,
-                                          frameworksDirectoryNames: context.frameworksDirectoryNames)
+            try lintScript(withName: context.scriptName,
+                           format: context.format,
+                           targetName: context.target,
+                           frameworksDirectoryNames: context.frameworksDirectoryNames)
         }
     }
 
