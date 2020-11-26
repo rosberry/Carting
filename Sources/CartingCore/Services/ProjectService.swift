@@ -82,7 +82,7 @@ public final class ProjectService {
             print(Constants.nothingToUpdate)
             return
         }
-        try removeListsDirectory()
+        removeListsDirectory()
         for path in frameworksDirectoryNames {
             try updateScript(withName: scriptName,
                              format: format,
@@ -344,8 +344,8 @@ public final class ProjectService {
 
     // MARK: - Private
 
-    private func removeListsDirectory() throws {
-        try projectFolder.subfolder(named: "xcfilelists").delete()
+    private func removeListsDirectory() {
+        try? projectFolder.subfolder(named: PathDispatcher.listsFolderName).delete()
     }
 
     private func initialContext(projectPath: String,
